@@ -38,21 +38,9 @@ export default function Login() {
     <main style={{ maxWidth: 520, margin: '40px auto 20px', padding: '0 16px' }}>
       <div className="card" style={{ padding: '32px 28px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}>
         <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <img
-            src="/logo.jpg"
-            alt="Cooperativa Unión Cariamanga"
-            style={{
-              width: 72,
-              height: 72,
-              borderRadius: 14,
-              objectFit: 'cover',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-              marginBottom: 12
-            }}
-          />
-          <h1 style={{ fontSize: 24, margin: '0 0 6px', color: '#132a52' }}>Cooperativa Unión Cariamanga</h1>
+          <h1 style={{ fontSize: 24, margin: '0 0 6px', color: '#132a52' }}>Software Trazabilidad de Encomiendas</h1>
           <p className="muted" style={{ margin: 0, fontSize: '14px' }}>
-            Sistema de Trazabilidad y Encomiendas · Iniciar Sesión
+            Panel de Operaciones · Iniciar Sesión
           </p>
         </div>
 

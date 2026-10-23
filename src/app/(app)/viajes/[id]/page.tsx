@@ -131,7 +131,39 @@ export default function Viaje() {
       {/* ── SECCIÓN 1: MANIFIESTO DE CARGA ── */}
       {tabDetalle === 'manifiesto' && (
       <div className="card">
-        <h2>Manifiesto · versión {v.version}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
+          <h2 style={{ margin: 0 }}>Manifiesto · versión {v.version}</h2>
+          {!v.borrador ? (
+            <span className="tag verde" style={{ fontSize: 13, padding: '6px 12px', fontWeight: 700 }}>
+              🔒 Manifiesto Cerrado · {v.estado === 'en_ruta' ? 'Bus en viaje' : 'Carga formalizada'}
+            </span>
+          ) : (
+            <span className="tag amarillo" style={{ fontSize: 13, padding: '6px 12px', fontWeight: 700 }}>
+              📝 Modo Borrador · Abierto a cambios
+            </span>
+          )}
+        </div>
+
+        {!v.borrador && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.08), rgba(16, 185, 129, 0.08))',
+            border: '1px solid #cbd5e1',
+            borderRadius: 8,
+            padding: '12px 16px',
+            marginBottom: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12
+          }}>
+            <span style={{ fontSize: 24 }}>🚌</span>
+            <div style={{ fontSize: 13, color: '#1e293b' }}>
+              <b>Manifiesto cerrado y bloqueado:</b> Este bus ya despachó su carga. 
+              {v.estado === 'en_ruta' && ' La unidad se encuentra actualmente en viaje. '}
+              No se permite agregar nuevos paquetes ni alterar el manifiesto directamente.
+            </div>
+          </div>
+        )}
+
         <div className="tabla-scroll">
           <table className="tabla-fija">
             <thead>
@@ -190,70 +222,48 @@ export default function Viaje() {
             </div>
 
             <div className="tripulacion-campos">
-              {/* CHOFER */}
+              {/* CHOFER (con nombres de prueba / demo) */}
               <div className="tripulacion-campo-grupo">
                 <label className="tripulacion-label" style={{ color: '#1e3a8a', fontWeight: 700 }}>
                   Chofer <span style={{ color: '#dc2626' }}>*</span>
                 </label>
-                {tripulantes.length > 0 && (
-                  <select
-                    value={condId}
-                    onChange={e => { setCondId(e.target.value); if (e.target.value) setCondNom(''); }}
-                    className="tripulacion-select"
-                  >
-                    <option value="">— Seleccionar de la lista —</option>
-                    {tripulantes.map(t => (
-                      <option key={t.id} value={t.id}>{t.nombre}</option>
-                    ))}
-                  </select>
-                )}
-                {!condId && (
-                  <input
-                    className="tripulacion-input"
-                    value={condNom}
-                    onChange={e => setCondNom(e.target.value)}
-                    placeholder={tripulantes.length > 0 ? 'O escribe nombre/cédula del chofer' : 'Nombre o cédula del chofer'}
-                  />
-                )}
-                {condId && (
-                  <button className="sec" style={{ marginTop: 6, fontSize: 12, padding: '4px 10px' }}
-                    onClick={() => setCondId('')}>
-                    Escribir nombre manualmente
-                  </button>
-                )}
+                <select
+                  value={condNom}
+                  onChange={e => { setCondNom(e.target.value); setCondId(''); }}
+                  className="tripulacion-select"
+                >
+                  <option value="">— Seleccionar chofer —</option>
+                  <option value="Carlos Andrade (Chofer Demo)">Carlos Andrade (Chofer Demo)</option>
+                  <option value="Manuel Guarnizo (Chofer Demo)">Manuel Guarnizo (Chofer Demo)</option>
+                  <option value="Luis Torres (Chofer Demo)">Luis Torres (Chofer Demo)</option>
+                  <option value="Segundo Cueva (Chofer Demo)">Segundo Cueva (Chofer Demo)</option>
+                  {tripulantes.map(t => (
+                    <option key={t.id} value={t.nombre}>{t.nombre}</option>
+                  ))}
+                </select>
+                <input
+                  style={{ marginTop: 6 }}
+                  className="tripulacion-input"
+                  value={condNom}
+                  onChange={e => { setCondNom(e.target.value); setCondId(''); }}
+                  placeholder="O escribe/edita el nombre del chofer"
+                />
               </div>
 
-              {/* AYUDANTE */}
+              {/* AYUDANTE (opcional y para escribir el nombre directamente) */}
               <div className="tripulacion-campo-grupo">
                 <label className="tripulacion-label" style={{ color: '#1e3a8a', fontWeight: 700 }}>
                   Ayudante <span style={{ fontWeight: 400, color: '#64748b', textTransform: 'none' }}>(opcional)</span>
                 </label>
-                {tripulantes.length > 0 && (
-                  <select
-                    value={ayuId}
-                    onChange={e => { setAyuId(e.target.value); if (e.target.value) setAyuNom(''); }}
-                    className="tripulacion-select"
-                  >
-                    <option value="">— Seleccionar de la lista —</option>
-                    {tripulantes.map(t => (
-                      <option key={t.id} value={t.id}>{t.nombre}</option>
-                    ))}
-                  </select>
-                )}
-                {!ayuId && (
-                  <input
-                    className="tripulacion-input"
-                    value={ayuNom}
-                    onChange={e => setAyuNom(e.target.value)}
-                    placeholder="Nombre del ayudante (opcional)"
-                  />
-                )}
-                {ayuId && (
-                  <button className="sec" style={{ marginTop: 6, fontSize: 12, padding: '4px 10px' }}
-                    onClick={() => setAyuId('')}>
-                    Escribir nombre manualmente
-                  </button>
-                )}
+                <input
+                  className="tripulacion-input"
+                  value={ayuNom}
+                  onChange={e => { setAyuNom(e.target.value); setAyuId(''); }}
+                  placeholder="Escribe el nombre del ayudante (opcional)"
+                />
+                <span className="muted" style={{ fontSize: '11.5px', marginTop: 4 }}>
+                  Ingresa manualmente el nombre del ayudante asignado si lo hubiere.
+                </span>
               </div>
             </div>
 

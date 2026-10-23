@@ -46,8 +46,7 @@ const ROLES: RolInfo[] = [
     ],
     rutasPermitidas: [
       { href: '/panel', label: 'Panel' },
-      { href: '/viajes', label: 'Viajes y Trazabilidad (Escaneo)' },
-      { href: '/viajes', label: 'Autorizar Salidas y Partida' },
+      { href: '/viajes', label: 'Viajes, Escaneo y Salidas' },
       { href: '/incidencias', label: 'Incidencias' },
     ],
   },
@@ -64,8 +63,7 @@ const ROLES: RolInfo[] = [
     ],
     rutasPermitidas: [
       { href: '/panel', label: 'Panel' },
-      { href: '/viajes', label: 'Viajes y Trazabilidad (Escaneo)' },
-      { href: '/viajes', label: 'Autorizar Salidas y Partida' },
+      { href: '/viajes', label: 'Viajes, Escaneo y Salidas' },
       { href: '/incidencias', label: 'Incidencias' },
     ],
   },
@@ -136,19 +134,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <aside className={`glass-drawer-left noprint ${menuMovilAbierto ? 'abierto' : ''}`}>
           <div className="glass-drawer-header">
             <div className="glass-drawer-brand">
-              <img
-                src="/logo.jpg"
-                alt="Logo Cooperativa"
-                style={{
-                  width: '38px',
-                  height: '38px',
-                  borderRadius: '8px',
-                  objectFit: 'cover',
-                  border: '1px solid rgba(255, 255, 255, 0.2)'
-                }}
-              />
               <div>
-                <h3 style={{ margin: 0, fontSize: '14.5px', fontWeight: 800, color: '#ffffff', lineHeight: 1.25 }}>Cooperativa de Transporte Sur Oriente</h3>
+                <h3 style={{ margin: 0, fontSize: '14.5px', fontWeight: 800, color: '#ffffff', lineHeight: 1.25 }}>Software Trazabilidad de Encomiendas</h3>
                 <span style={{ fontSize: '11px', color: '#94a3b8' }}>Panel Operativo</span>
               </div>
             </div>
@@ -184,7 +171,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               const activo = pathname === link.href || (link.href !== '/panel' && pathname.startsWith(link.href));
               return (
                 <Link
-                  key={link.href}
+                  key={`${link.href}-${link.label}`}
                   href={link.href}
                   className={`glass-nav-item ${activo ? 'activo' : ''}`}
                   onClick={() => setMenuMovilAbierto(false)}
@@ -249,19 +236,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
 
             <span className="brand" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-              <img
-                src="/logo.jpg"
-                alt="Logo Cooperativa"
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '6px',
-                  objectFit: 'cover',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  verticalAlign: 'middle'
-                }}
-              />
-              <span className="brand-texto">Cooperativa de Transporte Sur Oriente</span>
+              <span className="brand-texto">Software Trazabilidad de Encomiendas</span>
             </span>
 
             <span className="header-spacer" />

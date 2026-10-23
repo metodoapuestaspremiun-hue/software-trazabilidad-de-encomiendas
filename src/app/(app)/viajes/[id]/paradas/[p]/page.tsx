@@ -51,7 +51,54 @@ export default function Parada() {
   const ev = d.evaluacion; const aut = d.autorizacion;
   const lista = (rol: string) => d.bultos.filter((b: any) => b.rol === rol);
   const Col = ({ titulo, rol }: { titulo: string; rol: string }) => (
-    <div className="card"><h2>{titulo} ({lista(rol).length})</h2><table><tbody>{lista(rol).map((b: any) => <tr key={b.bultoId}><td className="mono">{fmtLegible(b.codigo)}</td><td>{b.encomienda} #{b.numero}</td><td><Estado e={b.estado} /></td></tr>)}</tbody></table></div>);
+    <div className="card">
+      <h2>{titulo} ({lista(rol).length})</h2>
+      <table>
+        <tbody>
+          {lista(rol).map((b: any) => {
+            const esPendienteCarga = rol === 'sube' && b.estado !== 'cargado';
+            const tieneFaltante = d.incidencias?.some((inc: any) => inc.tipo === 'faltante' && inc.codigo_legible === b.codigo);
+            return (
+              <tr key={b.bultoId}>
+                <td className="mono">{fmtLegible(b.codigo)}</td>
+                <td>{b.encomienda} #{b.numero}</td>
+                <td><Estado e={b.estado} /></td>
+                {enParada && (
+                  <td style={{ textAlign: 'right' }}>
+                    {esPendienteCarga && !tieneFaltante && puede(u, 'escaneo:operar') && (
+                      <button
+                        className="sec"
+                        style={{ fontSize: 11, padding: '3px 8px' }}
+                        title="Reportar si no se encuentra el paquete físicamente"
+                        onClick={() => {
+                          const razon = prompt(`Indica el motivo/razón de por qué no se encuentra el paquete ${fmtLegible(b.codigo)}:`);
+                          if (!razon || !razon.trim()) return;
+                          act(
+                            () => llamar('/api/incidencias', 'POST', {
+                              tipo: 'faltante',
+                              codigo: b.codigo,
+                              viajeId: id,
+                              nota: razon.trim(),
+                            }),
+                            'Faltante registrado con razón'
+                          );
+                        }}
+                      >
+                        ⚠️ No encontrado
+                      </button>
+                    )}
+                    {tieneFaltante && (
+                      <span className="tag rojo" style={{ fontSize: 11 }}>Faltante reportado</span>
+                    )}
+                  </td>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
   const enParada = d.viaje.parada_actual === orden;
   const continuan = lista('continua').length;
   return (
