@@ -59,8 +59,8 @@ export async function crearEncomienda(actorId: string, i: EncomiendaIn) {
         try {
           const v = await q1<any>(c, 'SELECT * FROM viaje WHERE id=?', [i.viajeId]);
           const m = await q1<any>(c, 'SELECT id, version, cerrado_at FROM manifiesto WHERE viaje_id=? ORDER BY version DESC LIMIT 1', [i.viajeId]);
-          // Solo vincular automáticamente si el manifiesto está en borrador (NO cerrado) y el bus no está en viaje
-          if (v && m && !m.cerrado_at && v.estado === 'programado') {
+          // Solo vincular automáticamente si el manifiesto está en borrador (NO cerrado) y el bus no está cerrado/en viaje
+          if (v && m && !m.cerrado_at && ['planificado', 'programado'].includes(v.estado)) {
             const paradas = await q<any>(c, 'SELECT orden, agencia_id FROM parada WHERE ruta_id=? ORDER BY orden', [v.ruta_id]);
             const pSube = paradas.find(p => p.agencia_id === i.origenId);
             const pBaja = paradas.find(p => p.agencia_id === i.destinoId);
@@ -218,16 +218,21 @@ export async function catalogos(db: Db) {
   const rutas = await q<any>(db, 'SELECT id,nombre FROM ruta ORDER BY nombre');
   const paradas = await q<any>(db, 'SELECT id,ruta_id,orden,nombre,agencia_id FROM parada ORDER BY ruta_id,orden');
   const tv = await q1<any>(db, 'SELECT etiqueta FROM tarifa_version ORDER BY vigente_desde DESC LIMIT 1');
-  // Solo viajes con manifiesto aún en borrador (para no agregar paquetes a buses con manifiesto cerrado o en viaje)
+  // Viajes activos en andén disponibles para cargar encomiendas (no cerrados ni en viaje terminado)
   const viajes = await q<any>(db,
     `SELECT v.id, v.vehiculo, v.conductor, v.estado, v.parada_actual, v.ruta_id, r.nombre as ruta_nombre
        FROM viaje v
        JOIN ruta r ON r.id = v.ruta_id
-      WHERE v.estado = 'programado'
-        AND EXISTS (
-          SELECT 1 FROM manifiesto m 
-           WHERE m.viaje_id = v.id 
-             AND m.cerrado_at IS NULL
+      WHERE v.estado IN ('planificado', 'programado')
+        AND (
+          EXISTS (
+            SELECT 1 FROM manifiesto m 
+             WHERE m.viaje_id = v.id 
+               AND m.cerrado_at IS NULL
+          )
+          OR NOT EXISTS (
+            SELECT 1 FROM manifiesto m WHERE m.viaje_id = v.id
+          )
         )
       ORDER BY v.fecha DESC, v.vehiculo ASC`
   );
