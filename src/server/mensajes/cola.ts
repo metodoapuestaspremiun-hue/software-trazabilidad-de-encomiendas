@@ -27,7 +27,20 @@ export async function encolar(db: Db, m: { dedupeKey: string; encomiendaId: stri
 
 export function despertarCola() {
   if (process.env.VITEST) return;
-  setTimeout(() => { procesarCola().catch(() => { /* la operacion nunca depende de esto */ }); }, 50);
+  // Intento 1: procesarCola en el mismo proceso (rápido, funciona en dev y en algunos entornos)
+  setTimeout(() => { procesarCola().catch(() => {}); }, 50);
+  // Intento 2: auto-llamada al endpoint del cron para garantizar envío inmediato en Vercel
+  // (las funciones serverless pueden "morir" antes de que el setTimeout termine)
+  const base = process.env.NEXT_PUBLIC_APP_URL
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+  const secret = process.env.CRON_SECRET;
+  if (secret && base) {
+    fetch(`${base}/api/cron/mensajes`, {
+      method: 'POST',
+      headers: { 'x-cron-secret': secret },
+      signal: AbortSignal.timeout(20000),
+    }).catch(() => { /* silencioso — el cron de cPanel lo reintentará igual */ });
+  }
 }
 
 function permitido(tel: string): boolean {
