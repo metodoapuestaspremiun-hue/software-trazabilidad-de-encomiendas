@@ -44,6 +44,7 @@ export default function Viajes() {
     try {
       const res: any = await llamar('/api/viajes/reiniciar-demo', 'POST');
       setMensajeOk(res.mensaje || 'Demostración reiniciada con éxito.');
+      setSoloConCarga(false); // Mostrar todos los turnos para que se vean los viajes recién creados (vacíos)
       await cargar();
     } catch (e: any) {
       setErr(e);
