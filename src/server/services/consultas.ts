@@ -24,7 +24,7 @@ export async function panel(db: Db) {
                JOIN bulto b ON b.id = mi.bulto_id
               WHERE m.viaje_id=v.id
                 AND m.version=(SELECT MAX(version) FROM manifiesto WHERE viaje_id=v.id)
-                AND b.estado NOT IN ('entregado')) AS items,
+                AND b.estado IN ('pendiente_despacho','cargado','en_transito')) AS items,
             (SELECT COUNT(*) FROM manifiesto_item mi
                JOIN manifiesto m ON m.id=mi.manifiesto_id
               WHERE m.viaje_id=v.id

@@ -4,12 +4,20 @@ import Link from 'next/link';
 import { llamar, fmtLegible } from '@/lib/cliente';
 import { Error_, Estado } from '@/components/ui';
 import { useUsuario } from '@/components/Sesion';
+import OperacionViajeModal from '@/components/OperacionViajeModal';
 
 export default function MiViaje() {
   const u = useUsuario();
   const [data, setData]  = useState<any>(null);
   const [err, setErr]    = useState<any>(null);
   const [filtro, setFiltro] = useState<'todos' | 'pendientes' | 'cargados' | 'entregados'>('todos');
+  const [modalOperacion, setModalOperacion] = useState<{
+    abierto: boolean;
+    modo: 'carga' | 'descarga' | 'salida';
+  }>({
+    abierto: false,
+    modo: 'carga',
+  });
 
   const cargar = () => llamar('/api/mi-viaje').then(setData).catch(setErr);
   useEffect(() => { cargar(); }, []);
@@ -102,16 +110,47 @@ export default function MiViaje() {
         </div>
       </div>
 
-      {/* Acceso rápido a parada actual */}
+      {/* Acceso rápido a parada actual con Asistente Modal */}
       {viaje.estado !== 'cerrado' && (
-        <div style={{ margin: '12px 0' }}>
-          <Link
-            href={`/viajes/${viaje.id}/paradas/${viaje.parada_actual}`}
+        <div style={{ margin: '14px 0', display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
+          <button
+            type="button"
+            onClick={() => setModalOperacion({ abierto: true, modo: 'carga' })}
             className="btn verde"
-            style={{ width: '100%', display: 'block', textAlign: 'center', padding: '14px', fontSize: 15 }}
+            style={{
+              padding: '14px',
+              fontSize: 15,
+              fontWeight: 800,
+              cursor: 'pointer',
+              border: 'none',
+              borderRadius: 10,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.28)',
+            }}
           >
-            Operar parada actual — {nombreP(viaje.parada_actual)}
-          </Link>
+            <span>⚡ Abrir Asistente — {nombreP(viaje.parada_actual)}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setModalOperacion({ abierto: true, modo: 'salida' })}
+            className="btn"
+            style={{
+              padding: '14px',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              border: 'none',
+              borderRadius: 10,
+              background: '#0f172a',
+              color: '#ffffff',
+            }}
+          >
+            🚀 Salida
+          </button>
         </div>
       )}
 
@@ -173,6 +212,20 @@ export default function MiViaje() {
           Ver detalle completo del viaje
         </Link>
       </div>
+
+      {/* ASISTENTE MODAL PARA OPERACIONES EN RUTA */}
+      {modalOperacion.abierto && (
+        <OperacionViajeModal
+          viajeId={viaje.id}
+          paradaInicial={viaje.parada_actual}
+          modoInicial={modalOperacion.modo}
+          abierto={modalOperacion.abierto}
+          onCerrar={() => setModalOperacion((prev) => ({ ...prev, abierto: false }))}
+          onActualizado={() => {
+            cargar();
+          }}
+        />
+      )}
     </div>
   );
 }

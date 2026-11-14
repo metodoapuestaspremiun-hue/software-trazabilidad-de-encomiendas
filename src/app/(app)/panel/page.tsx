@@ -6,11 +6,26 @@ import { llamar, fechaEC } from '@/lib/cliente';
 import { Error_, Estado } from '@/components/ui';
 import { useUsuario } from '@/components/Sesion';
 import { puede } from '@/shared/permisos';
+import { NuevaEncomiendaModal } from '@/components/NuevaEncomiendaModal';
+import OperacionViajeModal from '@/components/OperacionViajeModal';
 
 export default function Panel() {
   const u = useUsuario();
   const router = useRouter();
   const [d, setD] = useState<any>(null);
+  const [catalogo, setCatalogo] = useState<any>(null);
+  const [modalNuevaAbierto, setModalNuevaAbierto] = useState(false);
+  const [modalViajeConfig, setModalViajeConfig] = useState<{
+    abierto: boolean;
+    viajeId: string;
+    parada: number;
+    modo: 'carga' | 'descarga' | 'salida';
+  }>({
+    abierto: false,
+    viajeId: '',
+    parada: 1,
+    modo: 'carga',
+  });
   const [err, setErr] = useState<any>(null);
   const [cod, setCod] = useState('');
   const [tabActiva, setTabActiva] = useState<string>('todos');
@@ -18,6 +33,7 @@ export default function Panel() {
   const cargar = () => llamar('/api/panel').then(setD).catch(setErr);
   useEffect(() => {
     cargar();
+    llamar('/api/catalogos').then(setCatalogo).catch(console.warn);
     const t = setInterval(cargar, 15000);
     return () => clearInterval(t);
   }, []);
@@ -56,32 +72,61 @@ export default function Panel() {
     <div style={{ width: '100%', maxWidth: '100%', margin: '0' }}>
       {/* CABECERA SUPERIOR: TÍTULO Y BÚSQUEDA RÁPIDA */}
       <div className="dash-header-wrap">
-        <div className="dash-title-row">
-          <h1>
-            <span>
-              {puede(u, 'encomienda:crear') ? 'Panel Operativo de Ventanilla' :
-               (puede(u, 'salida:autorizar') && puede(u, 'escaneo:operar')) ? 'Panel de Conductor / Tripulación de Bus' :
-               puede(u, 'salida:autorizar') ? 'Panel de Conductor y Salidas' :
-               puede(u, 'escaneo:operar') ? 'Panel de Tripulación y Escaneo' :
-               'Panel Operativo General'}
-            </span>
-          </h1>
+        <div className="dash-title-row" style={{ alignItems: 'center' }}>
+          <div>
+            <h1>
+              <span>
+                {puede(u, 'encomienda:crear') ? 'Panel Operativo de Ventanilla' :
+                 (puede(u, 'salida:autorizar') && puede(u, 'escaneo:operar')) ? 'Panel de Conductor / Tripulación de Bus' :
+                 puede(u, 'salida:autorizar') ? 'Panel de Conductor y Salidas' :
+                 puede(u, 'escaneo:operar') ? 'Panel de Tripulación y Escaneo' :
+                 'Panel Operativo General'}
+              </span>
+            </h1>
+          </div>
 
-          <div className="dash-search-box noprint">
-            <span style={{ fontSize: '14px', color: '#64748b', fontWeight: 700 }}>BUSCAR:</span>
-            <input
-              value={cod}
-              onChange={e => setCod(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && buscar()}
-              placeholder="Código paquete (XXXX-XXXX) o QR..."
-            />
-            <button
-              type="button"
-              onClick={buscar}
-              style={{ padding: '6px 14px', fontSize: '13px', borderRadius: '10px' }}
-            >
-              Rastrear
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {puede(u, 'encomienda:crear') && (
+              <button
+                type="button"
+                onClick={() => setModalNuevaAbierto(true)}
+                style={{
+                  backgroundColor: '#059669',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '10px 20px',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(5, 150, 105, 0.35)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  transition: 'transform 0.15s ease',
+                }}
+              >
+                <span style={{ fontSize: 18 }}>+</span>
+                <span>Registrar Nueva Encomienda</span>
+              </button>
+            )}
+
+            <div className="dash-search-box noprint">
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 700 }}>BUSCAR:</span>
+              <input
+                value={cod}
+                onChange={e => setCod(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && buscar()}
+                placeholder="Código (XXXX-XXXX) o QR..."
+              />
+              <button
+                type="button"
+                onClick={buscar}
+                style={{ padding: '6px 14px', fontSize: '13px', borderRadius: '10px' }}
+              >
+                Rastrear
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -166,74 +211,47 @@ export default function Panel() {
                       </div>
                     </div>
 
-                    {/* Botones de acción directa para Chofer y Ayudante */}
-                    <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-                      <Link
-                        href={`${linkEscanear}?modo=carga`}
-                        className="btn"
+                    {/* Botón único, claro e inteligente para Chofer y Ayudante */}
+                    <div style={{ marginTop: 14 }}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setModalViajeConfig({
+                            abierto: true,
+                            viajeId: v.id,
+                            parada: paradaNum,
+                            modo: autorizada ? 'salida' : 'carga',
+                          })
+                        }
                         style={{
-                          flex: '1 1 140px',
-                          display: 'inline-flex',
+                          width: '100%',
+                          display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: 6,
-                          fontSize: 12.5,
-                          fontWeight: 700,
-                          padding: '8px 12px',
-                          background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                          gap: 10,
+                          fontSize: 14,
+                          fontWeight: 800,
+                          padding: '12px 18px',
+                          background: autorizada
+                            ? 'linear-gradient(135deg, #059669 0%, #047857 100%)'
+                            : 'linear-gradient(135deg, #1d4ed8 0%, #0f172a 100%)',
                           color: '#ffffff',
                           border: 'none',
-                          borderRadius: 8,
-                          textDecoration: 'none',
-                          boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
+                          borderRadius: 10,
+                          cursor: 'pointer',
+                          boxShadow: autorizada
+                            ? '0 4px 14px rgba(5, 150, 105, 0.35)'
+                            : '0 4px 14px rgba(29, 78, 216, 0.30)',
+                          transition: 'all 0.15s ease',
                         }}
-                        title="Subir paquetes al bus (carga de encomiendas)"
                       >
-                        <span>⬆️ Subir Paquetes (Cargar)</span>
-                      </Link>
-
-                      <Link
-                        href={`${linkEscanear}?modo=descarga`}
-                        className="btn sec"
-                        style={{
-                          flex: '1 1 140px',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 6,
-                          fontSize: 12.5,
-                          fontWeight: 700,
-                          padding: '8px 12px',
-                          borderRadius: 8,
-                          textDecoration: 'none',
-                        }}
-                        title="Bajar paquetes del bus (descarga en parada o destino)"
-                      >
-                        <span>⬇️ Bajar Paquetes (Descargar)</span>
-                      </Link>
-
-                      <Link
-                        href={`${linkEscanear}#salida`}
-                        className="btn"
-                        style={{
-                          flex: '1 1 100%',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 6,
-                          fontSize: 12.5,
-                          fontWeight: 700,
-                          padding: '9px 12px',
-                          background: autorizada ? '#10b981' : '#0f172a',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: 8,
-                          textDecoration: 'none',
-                        }}
-                        title="Autorizar partida del bus tras verificar la carga"
-                      >
-                        <span>{autorizada ? '✓ Salida Autorizada (Listo para Partir)' : '🚀 Autorizar Partida del Bus'}</span>
-                      </Link>
+                        <span style={{ fontSize: 18 }}>{autorizada ? '🚀' : '⚡'}</span>
+                        <span>
+                          {autorizada
+                            ? `Salida Lista · Revisar o Partir (#${paradaNum})`
+                            : `Operar Turno en Parada #${paradaNum} — ${v.parada_nombre || 'Parada Actual'}`}
+                        </span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -845,6 +863,33 @@ export default function Panel() {
             </table>
           </div>
         </div>
+      )}
+
+      {/* MODAL EXPRESS DE NUEVA ENCOMIENDA INVOCADO DESDE EL PANEL */}
+      {catalogo && (
+        <NuevaEncomiendaModal
+          isOpen={modalNuevaAbierto}
+          onClose={() => setModalNuevaAbierto(false)}
+          catalogo={catalogo}
+          usuario={u}
+          onSuccess={() => {
+            cargar();
+          }}
+        />
+      )}
+
+      {/* ASISTENTE MODAL PARA OPERACIONES DE TRIPULACIÓN EN RUTA */}
+      {modalViajeConfig.viajeId && (
+        <OperacionViajeModal
+          viajeId={modalViajeConfig.viajeId}
+          paradaInicial={modalViajeConfig.parada}
+          modoInicial={modalViajeConfig.modo}
+          abierto={modalViajeConfig.abierto}
+          onCerrar={() => setModalViajeConfig((prev) => ({ ...prev, abierto: false }))}
+          onActualizado={() => {
+            cargar();
+          }}
+        />
       )}
     </div>
   );

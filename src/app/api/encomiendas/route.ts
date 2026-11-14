@@ -17,7 +17,15 @@ export const POST = api({ permiso: 'encomienda:crear', schema: z.object({
   destNombre: z.string().min(1).max(100), destTel: z.string().max(20).nullish(),
   contenido: z.string().max(255).nullish(), valorDeclaradoCent: z.number().int().nonnegative().nullish(), refExterna: z.string().max(500).nullish(),
   viajeId: z.string().nullish(),
-  bultos: z.array(z.object({ pesoG: z.number().int().positive(), largoMm: z.number().int().positive().nullish(), anchoMm: z.number().int().positive().nullish(), altoMm: z.number().int().positive().nullish() })).min(1).max(50),
+  bultos: z.array(z.object({
+    pesoG: z.number().int().positive(),
+    largoMm: z.number().int().positive().nullish(),
+    anchoMm: z.number().int().positive().nullish(),
+    altoMm: z.number().int().positive().nullish(),
+    categoriaId: z.string().max(30).nullish(),
+    fotoUrl: z.string().max(500).nullish(),
+    iaClasificacion: z.any().nullish(),
+  })).min(1).max(50),
   manual: z.object({ valorCent: z.number().int().nonnegative(), motivo: z.string() }).nullish(),
 }) }, async ({ user, body }) => {
   if (!puede(user, 'encomienda:crear', body.origenId)) throw new ErrorNegocio('SIN_PERMISO', 'No puedes registrar encomiendas en esa agencia', undefined, 403);

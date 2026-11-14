@@ -121,7 +121,19 @@ export async function registrarSalidaReal(actorId: string, c: { viajeId: string;
       `UPDATE redespacho r JOIN manifiesto_item mi ON mi.bulto_id=r.bulto_id JOIN manifiesto m ON m.id=mi.manifiesto_id
           SET r.cerrado_at=NOW(3) WHERE m.viaje_id=? AND m.version=? AND mi.sube_orden=? AND r.cerrado_at IS NULL`, [c.viajeId, vig, c.parada]);
     await ex(db, 'UPDATE autorizacion_salida SET salida_real_at=NOW(3), salida_real_por=? WHERE id=?', [actorId, a.id]);
-    await ex(db, "UPDATE viaje SET parada_actual=?, estado='en_ruta' WHERE id=?", [c.parada + 1, c.viajeId]);
+
+    // Verificar si esta era la última parada de la ruta
+    const ultimaParada = await q1<any>(db, 'SELECT MAX(orden) max_orden FROM parada WHERE ruta_id=?', [viaje.ruta_id]);
+    const maxOrden = Number(ultimaParada?.max_orden || c.parada);
+
+    if (c.parada >= maxOrden) {
+      // El bus completó la ruta en su destino final
+      await ex(db, "UPDATE viaje SET estado='cerrado' WHERE id=?", [c.viajeId]);
+    } else {
+      // El bus avanza a la siguiente parada del trayecto
+      await ex(db, "UPDATE viaje SET parada_actual=?, estado='en_ruta' WHERE id=?", [c.parada + 1, c.viajeId]);
+    }
+
     for (const s of suben) await registrarEvento(db, { tipo: 'salida_real', bultoId: s.id, viajeId: c.viajeId, parada: c.parada, actorId });
     await registrarEvento(db, { tipo: 'salida_real', viajeId: c.viajeId, parada: c.parada, actorId, payload: { suben: suben.length } });
 

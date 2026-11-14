@@ -31,3 +31,16 @@ export function cotizar(bultos: BultoMedidas[], reglas: Regla[], factor: number)
   });
   return { valorCent: sinRegla ? 0 : total, sinRegla, pesoTotalG: pesoTotal, pesoFactTotalG: pesoFactTotal, detalle };
 }
+
+export interface CategoriaPaqueteItem {
+  id: string;
+  label: string;
+  precio_cent: number;
+}
+
+export function precioPorCategoria(categoriaId: string, categorias: CategoriaPaqueteItem[]): number | null {
+  const cat = categorias.find(c => c.id === categoriaId);
+  if (!cat || cat.id === 'personalizado') return null;
+  return cat.precio_cent;
+}
+

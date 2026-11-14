@@ -5,7 +5,15 @@ import { nuevoQrToken, nuevoCodigoLegible } from '@/domain/codigos';
 import { encolar, despertarCola } from '../mensajes/cola';
 import { T } from '../mensajes/plantillas';
 
-export interface BultoIn { pesoG: number; largoMm?: number | null; anchoMm?: number | null; altoMm?: number | null }
+export interface BultoIn {
+  pesoG: number;
+  largoMm?: number | null;
+  anchoMm?: number | null;
+  altoMm?: number | null;
+  categoriaId?: string | null;
+  fotoUrl?: string | null;
+  iaClasificacion?: any | null;
+}
 export interface EncomiendaIn {
   origenId: string; destinoId: string;
   remitenteNombre: string; remitenteTel?: string | null;
@@ -28,11 +36,47 @@ export async function cotizarPara(db: Db, origenId: string, destinoId: string, b
 export async function crearEncomienda(actorId: string, i: EncomiendaIn) {
   if (i.origenId === i.destinoId) throw new ErrorNegocio('ORIGEN_IGUAL_DESTINO', 'Origen y destino son la misma agencia', undefined, 400);
   const r = await tx(async c => {
-    const cot = await cotizarPara(c, i.origenId, i.destinoId, i.bultos);
-    if (cot.resultado.sinRegla && !i.manual) {
-      throw new ErrorNegocio('SIN_REGLA_TARIFA', 'No hay regla de tarifa para este peso/ruta. Se requiere cotizacion manual con motivo', cot.resultado.detalle);
+    // Verificar si se cotiza por categoría estándar (nuevo flujo rápido) o por peso/regla tradicional
+    const catsDb = await q<any>(c, 'SELECT id, label, precio_cent FROM paquete_categoria WHERE activa = 1');
+    const todosTienenCat = i.bultos.length > 0 && i.bultos.every(b => b.categoriaId && b.categoriaId !== 'personalizado');
+
+    let valor: number;
+    let sinRegla = false;
+    let tarifaVerId: string | null = null;
+    let pesoTotal = i.bultos.reduce((acc, b) => acc + (b.pesoG || 0), 0);
+    let pesoFactTotal = pesoTotal;
+    let detalleCotizacion: any = [];
+    let etiquetaTarifa: string | null = 'Tarifa Estándar por Tipo';
+
+    if (todosTienenCat) {
+      // Cálculo directo por categoría
+      valor = i.bultos.reduce((acc, b) => {
+        const cat = catsDb.find(cd => cd.id === b.categoriaId);
+        const p = cat?.precio_cent ?? 0;
+        detalleCotizacion.push({ numero: detalleCotizacion.length + 1, categoriaId: b.categoriaId, precioCent: p });
+        return acc + p;
+      }, 0);
+    } else if (i.manual && i.manual.valorCent != null) {
+      // Tarifa manual acordada
+      valor = i.manual.valorCent;
+      sinRegla = true;
+      etiquetaTarifa = 'Cotización Especial / Manual';
+    } else {
+      // Fallback a motor tradicional de peso/volumen
+      const cot = await cotizarPara(c, i.origenId, i.destinoId, i.bultos);
+      tarifaVerId = cot.tarifaVersionId;
+      etiquetaTarifa = cot.etiqueta;
+      if (cot.resultado.sinRegla && !i.manual) {
+        throw new ErrorNegocio('SIN_REGLA_TARIFA', 'No hay regla de tarifa para este peso/ruta. Se requiere cotizacion manual con motivo', cot.resultado.detalle);
+      }
+      if (cot.resultado.sinRegla && !i.manual?.motivo?.trim()) throw new ErrorNegocio('MOTIVO_OBLIGATORIO', 'La cotizacion manual exige motivo', undefined, 400);
+
+      valor = cot.resultado.sinRegla ? i.manual!.valorCent : cot.resultado.valorCent;
+      sinRegla = cot.resultado.sinRegla;
+      pesoTotal = cot.resultado.pesoTotalG;
+      pesoFactTotal = cot.resultado.pesoFactTotalG;
+      detalleCotizacion = cot.resultado.detalle;
     }
-    if (cot.resultado.sinRegla && !i.manual?.motivo?.trim()) throw new ErrorNegocio('MOTIVO_OBLIGATORIO', 'La cotizacion manual exige motivo', undefined, 400);
 
     const encId = nuevoId();
     const codigo = 'E-' + nuevoCodigoLegible();
@@ -47,9 +91,9 @@ export async function crearEncomienda(actorId: string, i: EncomiendaIn) {
       const b = i.bultos[n]; const id = nuevoId(); const qr = nuevoQrToken(); const leg = nuevoCodigoLegible();
       const tramoId = nuevoId();
       await ex(c,
-        `INSERT INTO bulto(id,encomienda_id,numero,qr_token,codigo_legible,peso_g,largo_mm,ancho_mm,alto_mm,agencia_custodia_id)
-         VALUES (?,?,?,?,?,?,?,?,?,?)`,
-        [id, encId, n + 1, qr, leg, b.pesoG, b.largoMm ?? null, b.anchoMm ?? null, b.altoMm ?? null, i.origenId]);
+        `INSERT INTO bulto(id,encomienda_id,numero,qr_token,codigo_legible,peso_g,largo_mm,ancho_mm,alto_mm,agencia_custodia_id,categoria_id,foto_url,ia_clasificacion)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [id, encId, n + 1, qr, leg, b.pesoG, b.largoMm ?? null, b.anchoMm ?? null, b.altoMm ?? null, i.origenId, b.categoriaId ?? null, b.fotoUrl ?? null, b.iaClasificacion ? JSON.stringify(b.iaClasificacion) : null]);
       await ex(c, 'INSERT INTO bulto_tramo(id,bulto_id,orden,desde_agencia_id,hasta_agencia_id) VALUES (?,?,1,?,?)', [tramoId, id, i.origenId, i.destinoId]);
       await registrarEvento(c, { tipo: 'bulto_registrado', bultoId: id, actorId, payload: { encomienda: codigo, numero: n + 1 } });
       bultos.push({ id, numero: n + 1, qrToken: qr, codigoLegible: leg, pesoG: b.pesoG });
@@ -80,19 +124,18 @@ export async function crearEncomienda(actorId: string, i: EncomiendaIn) {
         }
       }
     }
-    const valor = cot.resultado.sinRegla ? i.manual!.valorCent : cot.resultado.valorCent;
     await ex(c,
       `INSERT INTO cotizacion(id,encomienda_id,via,tarifa_version_id,peso_total_g,peso_fact_g,valor_cent,sin_regla,responsable_id,motivo,detalle)
        VALUES (?,?,'manual',?,?,?,?,?,?,?,?)`,
-      [nuevoId(), encId, cot.tarifaVersionId, cot.resultado.pesoTotalG, cot.resultado.pesoFactTotalG, valor,
-       cot.resultado.sinRegla ? 1 : 0, actorId, cot.resultado.sinRegla ? i.manual!.motivo : null, JSON.stringify(cot.resultado.detalle)]);
+      [nuevoId(), encId, tarifaVerId, pesoTotal, pesoFactTotal, valor,
+       sinRegla ? 1 : 0, actorId, sinRegla ? (i.manual?.motivo ?? 'Tarifa por categoría o manual') : null, JSON.stringify(detalleCotizacion)]);
 
     const dest = await q1<any>(c, 'SELECT nombre FROM agencia WHERE id=?', [i.destinoId]);
     await encolar(c, {
       dedupeKey: `enc:${encId}:registro_confirmado:${i.destTel}`, encomiendaId: encId, tel: i.destTel, plantilla: 'registro_confirmado',
       cuerpo: T.registro_confirmado({ nombre: i.destNombre, remitente: i.remitenteNombre, n: bultos.length, destino: dest?.nombre ?? '' }),
     });
-    return { id: encId, codigo, bultos, valorCent: valor, sinRegla: cot.resultado.sinRegla, etiquetaTarifa: cot.etiqueta };
+    return { id: encId, codigo, bultos, valorCent: valor, sinRegla, etiquetaTarifa };
   });
   despertarCola();
   return r;
@@ -218,6 +261,7 @@ export async function catalogos(db: Db) {
   const rutas = await q<any>(db, 'SELECT id,nombre FROM ruta ORDER BY nombre');
   const paradas = await q<any>(db, 'SELECT id,ruta_id,orden,nombre,agencia_id FROM parada ORDER BY ruta_id,orden');
   const tv = await q1<any>(db, 'SELECT etiqueta FROM tarifa_version ORDER BY vigente_desde DESC LIMIT 1');
+  const paquete_categorias = await q<any>(db, 'SELECT id, label, precio_cent, max_peso_g, orden FROM paquete_categoria WHERE activa = 1 ORDER BY orden');
   // Viajes activos en andén disponibles para cargar encomiendas (no cerrados ni en viaje terminado)
   const viajes = await q<any>(db,
     `SELECT v.id, v.vehiculo, v.conductor, v.estado, v.parada_actual, v.ruta_id, r.nombre as ruta_nombre
@@ -240,6 +284,7 @@ export async function catalogos(db: Db) {
     agencias,
     rutas: rutas.map(r => ({ ...r, paradas: paradas.filter(p => p.ruta_id === r.id) })),
     viajes,
+    paquete_categorias,
     etiquetaTarifa: tv?.etiqueta ?? null
   };
 }
